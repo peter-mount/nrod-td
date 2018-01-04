@@ -3,13 +3,17 @@
 package main
 
 import (
+  "encoding/json"
   "log"
+  "net/http"
   "sync"
 )
 
 type Statistics struct {
   // If set then log stats to the log every duration
   Log         bool
+  // If set then present /stats endpoint with json output
+  Statistics  bool
   // The schedule to use to collect statistics, defaults to every minute
   Schedule    string
   // Predefined Statistics
@@ -20,64 +24,67 @@ type Statistics struct {
 
 type Statistic struct {
   // the current value
-  value     int64
+  Value     int64       `json:"value"`
   // the number of updates
-  count     int64
+  Count     int64       `json:"count"`
   // The minimum value
-  min       int64
+  Min       int64       `json:"min"`
   // The maximum value
-  max       int64
+  Max       int64       `json:"max"`
   // The average value
-  ave       int64
+  Ave       int64       `json:"average"`
   // The sum of all values
-  sum       int64
+  Sum       int64       `json:"sum"`
 }
 
 func (s *Statistic) reset() {
-  s.value = 0
-  s.count = 0
-  s.min = int64(^uint64(0) >> 1)
-  s.max = -s.min - 1
-  s.ave = 0
-  s.sum = 0
+  s.Value = 0
+  s.Count = 0
+  s.Min = int64(^uint64(0) >> 1)
+  s.Max = -s.Min - 1
+  s.Ave = 0
+  s.Sum = 0
+}
+
+func (s *Statistic) clone() *Statistic {
+  var r *Statistic = new(Statistic)
+  r.Value = s.Value
+  r.Count = s.Count
+  r.Min = s.Min
+  r.Max = s.Max
+  r.Ave = s.Ave
+  r.Sum = s.Sum
+  return r
+}
+
+func (s *Statistic) update() {
+  if( s.Value < s.Min ) {
+    s.Min = s.Value
+  }
+  if( s.Value > s.Max ) {
+    s.Max = s.Value
+  }
+
+  // protect against /0 - incase count is reset for some reason
+  if( s.Count != 0 && s.Sum != 0 ) {
+    s.Ave = s.Sum / s.Count
+    } else {
+      s.Ave = 0
+    }
 }
 
 func (s *Statistic) set( v int64 ) {
-  s.value = v
-  s.sum += v
-  s.count ++
-  if( s.value < s.min ) {
-    s.min = v
-  }
-  if( s.value > s.max ) {
-    s.max = v
-  }
-
-  // protect against /0 - incase count is reset for some reason
-  if( s.count != 0 && s.sum != 0 ) {
-    s.ave = s.sum / s.count
-  } else {
-    s.ave = 0
-  }
+  s.Value = v
+  s.Sum += v
+  s.Count ++
+  s.update()
 }
 
 func (s *Statistic) incr( v int64 ) {
-  s.value += v
-  s.sum += v
-  s.count ++
-  if( s.value < s.min ) {
-    s.min = v
-  }
-  if( s.value > s.max ) {
-    s.max = v
-  }
-
-  // protect against /0 - incase count is reset for some reason
-  if( s.count != 0 && s.sum != 0 ) {
-    s.ave = s.sum / s.count
-  } else {
-    s.ave = 0
-  }
+  s.Value += v
+  s.Sum += v
+  s.Count ++
+  s.update()
 }
 
 func statsInit() {
@@ -87,14 +94,32 @@ func statsInit() {
   if( settings.Stats.Schedule == "" ) {
     settings.Stats.Schedule = "0 * * * * *"
   }
-
   cronAdd( settings.Stats.Schedule, statsRecord )
 
-  // Preinitialise stats table if needed
+  // Add /stats endpoint
+  if( settings.Stats.Statistics ) {
+    settings.Server.router.HandleFunc( "/stats", getStats ).Methods( "GET" )
+  }
 
   debug( "Statistics initialised")
 }
 
+// Handler for /stats
+func getStats(w http.ResponseWriter, r *http.Request) {
+  var stats = make( map[string]*Statistic )
+
+  settings.Stats.mutex.Lock()
+  for key,value := range settings.Stats.stats {
+    stats[key] = value.clone()
+  }
+  settings.Stats.mutex.Unlock()
+
+  log.Println( len( stats ) )
+
+  json.NewEncoder(w).Encode( stats )
+}
+
+// Record then reset all Statistics
 func statsRecord() {
   settings.Stats.mutex.Lock()
 
@@ -104,12 +129,12 @@ func statsRecord() {
       log.Printf(
         "%s Val %d Count %d Min %d Max %d Sum %d Ave %d\n",
         key,
-        value.value,
-        value.count,
-        value.min,
-        value.max,
-        value.sum,
-        value.ave )
+        value.Value,
+        value.Count,
+        value.Min,
+        value.Max,
+        value.Sum,
+        value.Ave )
     }
 
     value.reset()

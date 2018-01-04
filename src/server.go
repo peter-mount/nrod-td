@@ -20,7 +20,7 @@ type Server struct {
 func serverInit() {
   // If not defined then use port 80
   if settings.Server.Port < 1 || settings.Server.Port > 65534 {
-    settings.Server.Port = 80
+    settings.Server.Port = 8080
   }
 
   settings.Server.router = mux.NewRouter()
