@@ -6,16 +6,33 @@ import (
   "log"
   "strconv"
   "sync"
+  "time"
 )
 
 type TD struct {
   areas     map[string]*TDArea
   mutex    *sync.Mutex
+  // The timestamp of the last operation
+  timestamp int64
 }
 
 func tdInit() {
   settings.Td.areas = make( map[string]*TDArea )
   settings.Td.mutex = &sync.Mutex{}
+}
+
+func (a *TD) update( t string ) *TD {
+
+  n, err := strconv.ParseInt( t, 10, 64 )
+  if err == nil {
+    a.timestamp = n
+
+    // Record the latency. count will be the number of messages processed for all
+    // Note n is Java time so in milliseconds hence *1000
+    statsSet( "td.all", (time.Now().Unix()*1000) - n )
+  }
+
+  return a
 }
 
 type TDArea struct {
@@ -26,8 +43,17 @@ type TDArea struct {
   berths    map[string]*TDBerth
 }
 
-func (a *TDArea) update( t int64 ) *TDArea {
-  a.timestamp = t
+func (a *TDArea) update( t string ) *TDArea {
+
+  n, err := strconv.ParseInt( t, 10, 64 )
+  if err == nil {
+    a.timestamp = n
+
+    // Record the latency. count will be the number of messages processed for this area
+    // Note n is Java time so in milliseconds hence *1000
+    statsSet( "td." + a.name, (time.Now().Unix()*1000) - n )
+  }
+
   return a
 }
 
@@ -36,14 +62,13 @@ func (t *TD) area( a string ) *TDArea {
     return val
   }
 
-  log.Println( "New Area", a )
+  debug( "New Area", a )
 
   var v *TDArea = new( TDArea )
   v.name = a
   v.berths = make( map[string]*TDBerth )
   t.areas[ a ] = v
 
-  log.Println( "New Area", a, v )
   return v
 }
 
@@ -103,10 +128,11 @@ type CAMessage struct {
 }
 
 func (m *CAMessage) handle() {
-  statsIncr( "td.area.msg" )
-  var a *TDArea = settings.Td.area( m.Area )
+  settings.Td.mutex.Lock()
+  var a *TDArea = settings.Td.update( m.Time ).area( m.Area ).update( m.Time )
   a.berth( m.From ).update( m.Time, "" )
   a.berth( m.To ).update( m.Time, m.Descr )
+  settings.Td.mutex.Unlock()
 }
 
 type CBMessage struct {
@@ -117,8 +143,9 @@ type CBMessage struct {
 }
 
 func (m *CBMessage) handle() {
-  statsIncr( "td.area.msg" )
-  settings.Td.area( m.Area ).berth( m.From ).update( m.Time, "" )
+  settings.Td.mutex.Lock()
+  settings.Td.update( m.Time ).area( m.Area ).update( m.Time ).berth( m.From ).update( m.Time, "" )
+  settings.Td.mutex.Unlock()
 }
 
 type CCMessage struct {
@@ -129,8 +156,9 @@ type CCMessage struct {
 }
 
 func (m *CCMessage) handle() {
-  statsIncr( "td.area.msg" )
-  settings.Td.area( m.Area ).berth( m.To ).update( m.Time, m.Descr )
+  settings.Td.mutex.Lock()
+  settings.Td.update( m.Time ).area( m.Area ).update( m.Time ).berth( m.To ).update( m.Time, m.Descr )
+  settings.Td.mutex.Unlock()
 }
 
 type CTMessage struct {
@@ -140,8 +168,7 @@ type CTMessage struct {
 }
 
 func (m *CTMessage) handle() {
-  statsIncr( "td.area.msg" )
-  log.Println( "Area", m.Area, "tm", m.RepTM )
+  //log.Println( "Area", m.Area, "tm", m.RepTM )
   //settings.Td.area( m.Area ).berth( to ).update( m.Time, m.Descr )
 }
 
