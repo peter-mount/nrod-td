@@ -247,7 +247,8 @@ type AreasOut struct {
 // Return
 func tdGetAreas( w http.ResponseWriter, r *http.Request ) {
   var result = new( AreasOut )
-  result.Timestamp = settings.Td.timestamp / int64(100)
+  result.Timestamp = settings.Td.timestamp
+  result.Reset = settings.Td.reset
 
   var berths = 0
 
@@ -290,7 +291,7 @@ func tdGetArea( w http.ResponseWriter, r *http.Request ) {
 
   settings.Td.mutex.Lock()
   if area, ok := settings.Td.areas[ result.Name ]; ok {
-    result.Timestamp = area.timestamp / int64(1000)
+    result.Timestamp = area.timestamp
     result.HeartBeat = area.heartBeat
 
     for name, berth := range area.berths {
