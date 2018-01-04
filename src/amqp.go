@@ -3,26 +3,45 @@
 package main
 
 import (
-  "log"
   "github.com/streadway/amqp"
+  "log"
+  "time"
 )
 
 type AMQP struct {
-  Url         string `yaml:"url"`
-  Exchange    string `yaml:"exchange"`
-  connection  *amqp.Connection  `yaml:"-"`  // amqp connection
-  channel     *amqp.Channel     `yaml:"-"`  // amqp channel
+  Url                 string  `yaml:"url"`
+  Exchange            string  `yaml:"exchange"`
+  ConnectionName      string  `yaml:"connectionName"`
+  HeartBeat           int     `yaml:"heartBeat"`
+  Product             string  `yaml:"product"`
+  Version             string  `yaml:"version"`
+  // ===== Internal
+  connection     *amqp.Connection  `yaml:"-"`  // amqp connection
+  channel        *amqp.Channel     `yaml:"-"`  // amqp channel
 }
 
 // called by main() ensure mandatory config is present
 func amqpInit( ) {
-  if( settings.Amqp.Url == "" ) {
+  if settings.Amqp.Url == "" {
     log.Fatal( "amqp.url is mandatory" )
   }
 
-  if( settings.Amqp.Exchange == "" ) {
+  if settings.Amqp.Exchange == "" {
     settings.Amqp.Exchange = "amq.topic"
   }
+
+  if settings.Amqp.HeartBeat == 0 {
+    settings.Amqp.HeartBeat = 10
+  }
+
+  if settings.Amqp.Product == "" {
+    settings.Amqp.Product = "Area51 GO"
+  }
+
+  if settings.Amqp.Version == "" {
+    settings.Amqp.Version = "0.1β"
+  }
+
 }
 
 // Connect to amqp server as necessary
@@ -30,9 +49,26 @@ func amqpConnect( ) {
   debug( "Connecting to amqp" )
 
   // Connect using the amqp url
-  connection, err := amqp.Dial( settings.Amqp.Url )
-  fatalOnError( err )
-  settings.Amqp.connection = connection
+  /*
+  if settings.Amqp.ConnectionName == "" {
+    connection, err := amqp.Dial( settings.Amqp.Url )
+    fatalOnError( err )
+    settings.Amqp.connection = connection
+  } else {
+  */
+    // Use the user provided client name
+    connection, err := amqp.DialConfig( settings.Amqp.Url, amqp.Config{
+      Heartbeat:  time.Duration( settings.Amqp.HeartBeat ) * time.Second,
+      Properties: amqp.Table{
+        "product": settings.Amqp.Product,
+        "version": settings.Amqp.Version,
+        "connection_name": settings.Amqp.ConnectionName,
+      },
+      Locale: "en_US",
+      } )
+    fatalOnError( err )
+    settings.Amqp.connection = connection
+  //}
 
   // To cleanly shutdown by flushing kernel buffers, make sure to close and
   // wait for the response.

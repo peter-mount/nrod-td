@@ -13,6 +13,19 @@ import (
 )
 
 type TD struct {
+  // Required: The Queue name to declare
+  Queue       string      `yaml:"queue"`
+  // Required: The routing key to bind to
+  RoutingKey  string      `yaml:"routingKey"`
+  // The exchange to use, defaults to "amq.topic"
+  Exchange    string      `yaml:"exchange"`
+  // Declare the queue as durable
+  Durable     bool        `yaml:"durable"`
+  AutoDelete  bool        `yaml:"autoDelete"`
+  Exclusive   bool        `yaml:"exclusive"`
+  // Consumer Tag, defaults to "", shows in RabbitMQ management plugin
+  ConsumerTag string      `yaml:"consumerTag"`
+  // ===== Internal
   areas     map[string]*TDArea
   mutex    *sync.Mutex
   // The timestamp of the last operation
@@ -22,6 +35,18 @@ type TD struct {
 }
 
 func tdInit() {
+  if settings.Td.Queue == "" {
+    log.Fatal( "Queue name is required" )
+  }
+
+  if settings.Td.RoutingKey == "" {
+    log.Fatal( "RoutingKey is required" )
+  }
+
+  if settings.Td.Exchange == "" {
+    settings.Td.Exchange = "amq.topic"
+  }
+
   settings.Td.areas = make( map[string]*TDArea )
   settings.Td.mutex = &sync.Mutex{}
 
@@ -195,12 +220,33 @@ func (m *CTMessage) handle() {
 }
 
 func tdStart() {
-  _, err := settings.Amqp.channel.QueueDeclare( "td", true, false, false, false, nil )
+  _, err := settings.Amqp.channel.QueueDeclare(
+    settings.Td.Queue,
+    settings.Td.Durable,
+    settings.Td.AutoDelete,
+    settings.Td.Exclusive,
+    // wait & no args
+    false, nil )
   fatalOnError( err )
 
-  fatalOnError( settings.Amqp.channel.QueueBind( "td", "feed.nrod.td", "amq.topic", false, nil ) )
+  fatalOnError( settings.Amqp.channel.QueueBind(
+    settings.Td.Queue,
+    settings.Td.RoutingKey,
+    settings.Td.Exchange,
+    // wait & no args
+    false, nil ) )
 
-  queue, err := settings.Amqp.channel.Consume( "td", "td go", false, false, false, false, nil )
+  queue, err := settings.Amqp.channel.Consume(
+    settings.Td.Queue,
+    settings.Td.ConsumerTag,
+    // Don't auto Ack as we do this after processing
+    false,
+    // Exclusive so we are the only permitted consumer on this queue
+    true,
+    // noLocal is always false on RabbitMQ as its unsupported
+    false,
+    // wait & no args
+    false, nil )
   fatalOnError( err )
 
   go func(  ) {
