@@ -42,6 +42,7 @@ type Statistic struct {
   History   []*Statistic  `json:"history,omitempty"`
   // The last 5 minutes data, used to build the history
   lastFive  []*Statistic  `json:"-"`
+  latest    *Statistic    `json:"-"`
 }
 
 const (
@@ -119,7 +120,8 @@ func (s *Statistic) incr( v int64 ) {
 
 func (s *Statistic) recordHistory() {
   // Add to last 5 entries
-  s.lastFive = append( s.lastFive, s.clone() )
+  s.latest = s.clone()
+  s.lastFive = append( s.lastFive, s.latest )
   // If full then collate and push to history
   if len( s.lastFive ) >= STATS_HISTORY_PERIOD {
     // Form new statistoc of sum of all entries within it
@@ -163,7 +165,9 @@ func getStats(w http.ResponseWriter, r *http.Request) {
 
   settings.Stats.mutex.Lock()
   for key,value := range settings.Stats.stats {
-    stats[key] = value.clone()
+    if value.latest != nil {
+      stats[key] = value.latest.clone()
+    }
   }
   settings.Stats.mutex.Unlock()
 
