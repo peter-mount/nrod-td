@@ -7,6 +7,7 @@ import (
   "log"
   "net/http"
   "sync"
+  "time"
 )
 
 type Statistics struct {
@@ -23,21 +24,35 @@ type Statistics struct {
 }
 
 type Statistic struct {
+  // The timestamp of the last operation
+  Timestamp int64         `json:"timestamp"`
   // the current value
-  Value     int64       `json:"value"`
+  Value     int64         `json:"value"`
   // the number of updates
-  Count     int64       `json:"count"`
+  Count     int64         `json:"count"`
   // The minimum value
-  Min       int64       `json:"min"`
+  Min       int64         `json:"min"`
   // The maximum value
-  Max       int64       `json:"max"`
+  Max       int64         `json:"max"`
   // The average value
-  Ave       int64       `json:"average"`
+  Ave       int64         `json:"average"`
   // The sum of all values
-  Sum       int64       `json:"sum"`
+  Sum       int64         `json:"sum"`
+  // Historic data, max 72 entries at 5 minute intervals
+  History   []*Statistic  `json:"history,omitempty"`
+  // The last 5 minutes data, used to build the history
+  lastFive  []*Statistic  `json:"-"`
 }
 
+const (
+  // 72 entries * STATS_HISTORY_PERIOD m = 6 hours when default schedule of 1 minute
+  STATS_MAX_HISTORY = 72
+  // Period of history in schedule units
+  STATS_HISTORY_PERIOD = 5
+)
+
 func (s *Statistic) reset() {
+  s.Timestamp = time.Now().Unix()
   s.Value = 0
   s.Count = 0
   s.Min = int64(^uint64(0) >> 1)
@@ -48,16 +63,31 @@ func (s *Statistic) reset() {
 
 func (s *Statistic) clone() *Statistic {
   var r *Statistic = new(Statistic)
+  r.Timestamp = s.Timestamp
   r.Value = s.Value
   r.Count = s.Count
   r.Min = s.Min
   r.Max = s.Max
   r.Ave = s.Ave
   r.Sum = s.Sum
+  r.lastFive = statsCopyArray( s.lastFive )
+  r.History = statsCopyArray( s.History )
+
   return r
 }
 
+func statsCopyArray( s []*Statistic ) []*Statistic {
+  var a []*Statistic
+  if len( s ) > 0 {
+    for _, v := range s {
+      a = append( a, v.clone() )
+    }
+  }
+  return a
+}
+
 func (s *Statistic) update() {
+  s.Timestamp = time.Now().Unix()
   if( s.Value < s.Min ) {
     s.Min = s.Value
   }
@@ -85,6 +115,29 @@ func (s *Statistic) incr( v int64 ) {
   s.Sum += v
   s.Count ++
   s.update()
+}
+
+func (s *Statistic) recordHistory() {
+  // Add to last 5 entries
+  s.lastFive = append( s.lastFive, s.clone() )
+  // If full then collate and push to history
+  if len( s.lastFive ) >= STATS_HISTORY_PERIOD {
+    // Form new statistoc of sum of all entries within it
+    var hist = new(Statistic)
+    for _, val := range s.lastFive {
+      hist.Value += val.Value
+      hist.Count += val.Count
+      hist.Sum += val.Sum
+    }
+    hist.update()
+    s.History = append( s.History, hist )
+    s.lastFive = nil
+
+    // Keep history down to size
+    if len( s.History ) > STATS_MAX_HISTORY {
+      s.History = s.History[1:]
+    }
+  }
 }
 
 func statsInit() {
@@ -125,18 +178,24 @@ func statsRecord() {
 
   for key,value := range settings.Stats.stats {
 
-    if( settings.Stats.Log ) {
-      log.Printf(
-        "%s Val %d Count %d Min %d Max %d Sum %d Ave %d\n",
-        key,
-        value.Value,
-        value.Count,
-        value.Min,
-        value.Max,
-        value.Sum,
-        value.Ave )
+    // Don't report stats with no submitted values, i.e. Min > Max
+    if( value.Min <= value.Max ) {
+
+      if( settings.Stats.Log ) {
+        log.Printf(
+          "%s Val %d Count %d Min %d Max %d Sum %d Ave %d\n",
+          key,
+          value.Value,
+          value.Count,
+          value.Min,
+          value.Max,
+          value.Sum,
+          value.Ave )
+      }
+
     }
 
+    value.recordHistory()
     value.reset()
   }
 
