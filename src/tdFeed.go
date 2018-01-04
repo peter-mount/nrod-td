@@ -51,6 +51,8 @@ type TDArea struct {
   timestamp int64
   // Map of berths
   berths    map[string]*TDBerth
+  // Signal data
+  signals   map[string]string
   // heartBeat from CT message
   heartBeat string
 }
@@ -79,6 +81,7 @@ func (t *TD) area( a string ) *TDArea {
   var v *TDArea = new( TDArea )
   v.name = a
   v.berths = make( map[string]*TDBerth )
+  v.signals = make( map[string]string )
   t.areas[ a ] = v
 
   return v
@@ -121,9 +124,9 @@ type TDMessage struct {
   CB  *CBMessage  `json:"CB_MSG"`
   CC  *CCMessage  `json:"CC_MSG"`
   CT  *CTMessage  `json:"CT_MSG"`
-  //SF  *SMessage   `json:"SF_MSG"`
-  //SG  *SMessage   `json:"SG_MSG"`
-  //SH  *SMessage   `json:"SH_MSG"`
+  SF  *SMessage   `json:"SF_MSG"`
+  SG  *SMessage   `json:"SG_MSG"`
+  SH  *SMessage   `json:"SH_MSG"`
 }
 
 type SMessage struct {
@@ -135,7 +138,9 @@ type SMessage struct {
 }
 
 func (m *SMessage) handle() {
-  statsIncr( "td.area.msg" )
+  settings.Td.mutex.Lock()
+  settings.Td.update( m.Time ).area( m.Area ).signals[ m.Addr ] = m.Data
+  settings.Td.mutex.Unlock()
 }
 
 type CAMessage struct {
@@ -212,10 +217,14 @@ func tdStart() {
       fatalOnError( json.Unmarshal( msg.Body, &dat ) )
 
       for _, tdmsg := range dat {
+        // TODO Must find a better way of handling this
         if tdmsg.CA != nil { tdmsg.CA.handle() }
         if tdmsg.CB != nil { tdmsg.CB.handle() }
         if tdmsg.CC != nil { tdmsg.CC.handle() }
         if tdmsg.CT != nil { tdmsg.CT.handle() }
+        if tdmsg.SF != nil { tdmsg.SF.handle() }
+        if tdmsg.SG != nil { tdmsg.SG.handle() }
+        if tdmsg.SH != nil { tdmsg.SH.handle() }
       }
 
       msg.Ack( false )
@@ -266,6 +275,7 @@ func tdGetAreas( w http.ResponseWriter, r *http.Request ) {
 type AreaOut struct {
   Name        string                `json:"name"`
   Berths      map[string]*TDBerth   `json:"berths"`
+  Signals     map[string]string     `json:"signals"`
   Timestamp   int64                 `json:"lastUpdate"`
   HeartBeat   string                `json:"heartBeat"`
   Occupied    int                   `json:"occupied"`
@@ -279,6 +289,7 @@ func tdGetArea( w http.ResponseWriter, r *http.Request ) {
   var result = new( AreaOut )
   result.Name = params[ "id" ]
   result.Berths = make( map[string]*TDBerth )
+  result.Signals = make( map[string]string )
 
   settings.Td.mutex.Lock()
   if area, ok := settings.Td.areas[ result.Name ]; ok {
@@ -289,6 +300,10 @@ func tdGetArea( w http.ResponseWriter, r *http.Request ) {
       if berth.Descr != "" {
         result.Berths[ name ] = berth.clone()
       }
+    }
+
+    for addr, data := range area.signals {
+      result.Signals[ addr ] = data
     }
 
     result.Total = len( area.berths )
