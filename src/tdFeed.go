@@ -31,17 +31,26 @@ func tdInit() {
   settings.Server.router.HandleFunc( "/{id}", tdGetArea ).Methods( "GET" )
 }
 
-func (a *TD) update( t string ) *TD {
-
+// Return the NR timestamp as a unix timestamp
+// t timestamp string
+// a Statistic id, "" for none (i.e. berths)
+func tdParseTimestamp( t string, a string ) int64 {
   n, err := strconv.ParseInt( t, 10, 64 )
   if err == nil {
-    a.timestamp = n
+    // NR feed is in Java time (millis) so convert to Unix time (seconds)
+    n = n / int64(1000)
 
-    // Record the latency. count will be the number of messages processed for all
-    // Note n is Java time so in milliseconds hence /1000
-    statsSet( "td.all", time.Now().Unix() - (n/int64(1000)) )
+    if a != "" {
+      statsSet( "td." + a, time.Now().Unix() - n )
+    }
+
+    return n
   }
+  return 0
+}
 
+func (a *TD) update( t string ) *TD {
+  a.timestamp = tdParseTimestamp( t, "all" )
   return a
 }
 
@@ -58,16 +67,7 @@ type TDArea struct {
 }
 
 func (a *TDArea) update( t string ) *TDArea {
-
-  n, err := strconv.ParseInt( t, 10, 64 )
-  if err == nil {
-    a.timestamp = n
-
-    // Record the latency. count will be the number of messages processed for this area
-    // Note n is Java time so in milliseconds hence /1000
-    statsSet( "td." + a.name, time.Now().Unix() - (n/int64(1000)) )
-  }
-
+  a.timestamp = tdParseTimestamp( t, a.name )
   return a
 }
 
@@ -102,10 +102,7 @@ func (b *TDBerth) clone() *TDBerth {
 }
 
 func (b *TDBerth) update( t string, d string ) *TDBerth {
-  n, err := strconv.ParseInt( t, 10, 64 )
-  if err == nil {
-    b.Timestamp = n
-  }
+  b.Timestamp = tdParseTimestamp( t, "" )
   b.Descr = d
   return b
 }
