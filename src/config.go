@@ -12,6 +12,7 @@ type Config struct {
   Stats   Statistics  // Statistics
   Amqp    AMQP        // RabbitMQ config
   Cron    CRON        // Cron config
+  Server  Server      // Rest server
 }
 
 var settings Config
@@ -31,6 +32,7 @@ func loadConfig( configFile *string ) {
 
   // Call each supported init method so they can play with the config
   amqpInit()
+  serverInit()
   cronInit()
   statsInit()
 }

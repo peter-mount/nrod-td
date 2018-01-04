@@ -4,7 +4,7 @@ import (
   "flag"
   "log"
   "os"
-  "time"
+  //"time"
 )
 
 func main() {
@@ -30,15 +30,15 @@ func main() {
   amqpConnect()
   cronStart()
 
-//  if( settings.Http.enabled ) {
-//    stompRun()
-//  }
+  statsSet( "test.stat", 0 )
 
-statsSet( "test.stat", 0 )
-
+  // serverStart never returns so no need for a time loop
+  serverStart()
+  /*
   // Now keep running forever
   for {
     statsIncr( "td.runtime" )
     time.Sleep(time.Minute)
   }
+  */
 }

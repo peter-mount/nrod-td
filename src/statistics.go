@@ -96,8 +96,6 @@ func statsInit() {
 }
 
 func statsRecord() {
-  log.Println( "Record Tick" )
-
   settings.Stats.mutex.Lock()
 
   for key,value := range settings.Stats.stats {

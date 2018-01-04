@@ -15,6 +15,7 @@ RUN mkdir -p /dest/etc &&\
 # Ensure we have the libraries - docker will cache these between builds
 RUN go get -v \
       flag \
+      github.com/gorilla/mux \
       github.com/streadway/amqp \
       gopkg.in/robfig/cron.v2 \
       gopkg.in/yaml.v2 \
