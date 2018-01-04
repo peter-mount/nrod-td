@@ -35,7 +35,6 @@ func serverStart() {
 func (s *Server) setUnixDate( w http.ResponseWriter, t int64 ) {
   var b []byte = appendTime( nil, time.Unix( t, int64(0) ) )
   w.Header().Add( "Date", string( b[:] ) )
-  log.Println( t, string( b[:] ) )
 }
 
 // Sets response headers for a Json response.
@@ -51,7 +50,7 @@ func (s *Server) setJsonResponse( w http.ResponseWriter, sc int, t int64, cache 
     s.setUnixDate( w, t )
   }
 
-  if cache < {
+  if cache < 0 {
     h.Add( "Cache-Control", "no-cache" )
   } else if cache > 0 {
     h.Add( "Cache-Control", fmt.Sprintf( "max-age=%d, s-maxage=%d", cache, cache ) )

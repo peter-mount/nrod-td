@@ -211,7 +211,7 @@ func statsDecr( s string ) {
 }
 
 // return a statistic creating it as needed
-func statsGet( s string ) *Statistic {
+func statsGetOrCreate( s string ) *Statistic {
   if val, ok := settings.Stats.stats[s]; ok {
     return val
   }
@@ -222,12 +222,25 @@ func statsGet( s string ) *Statistic {
 
 func statsIncrVal( s string, v int64 ) {
   settings.Stats.mutex.Lock()
-  statsGet( s ).incr( v )
+  statsGetOrCreate( s ).incr( v )
   settings.Stats.mutex.Unlock()
 }
 
 func statsSet( s string, v int64 ) {
   settings.Stats.mutex.Lock()
-  statsGet( s ).set( v )
+  statsGetOrCreate( s ).set( v )
   settings.Stats.mutex.Unlock()
+}
+
+func statsGet( s string ) *Statistic {
+  settings.Stats.mutex.Lock()
+  val, ok := settings.Stats.stats[s]
+  settings.Stats.mutex.Unlock()
+  if( ok ) {
+    if val.latest != nil {
+      return val.latest.clone()
+    }
+    return val.clone()
+  }
+  return nil
 }

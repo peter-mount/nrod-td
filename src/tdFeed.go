@@ -17,11 +17,15 @@ type TD struct {
   mutex    *sync.Mutex
   // The timestamp of the last operation
   timestamp int64
+  // Timestamp of the last reset
+  reset     int64
 }
 
 func tdInit() {
   settings.Td.areas = make( map[string]*TDArea )
   settings.Td.mutex = &sync.Mutex{}
+
+  settings.Td.reset = time.Now().Unix()
 
   settings.Server.router.HandleFunc( "/area", tdGetAreas ).Methods( "GET" )
   settings.Server.router.HandleFunc( "/{id}", tdGetArea ).Methods( "GET" )
@@ -47,6 +51,8 @@ type TDArea struct {
   timestamp int64
   // Map of berths
   berths    map[string]*TDBerth
+  // heartBeat from CT message
+  heartBeat string
 }
 
 func (a *TDArea) update( t string ) *TDArea {
@@ -181,8 +187,9 @@ type CTMessage struct {
 }
 
 func (m *CTMessage) handle() {
-  //log.Println( "Area", m.Area, "tm", m.RepTM )
-  //settings.Td.area( m.Area ).berth( to ).update( m.Time, m.Descr )
+  settings.Td.mutex.Lock()
+  settings.Td.update( m.Time ).area( m.Area ).heartBeat = m.RepTM
+  settings.Td.mutex.Unlock()
 }
 
 func tdStart() {
@@ -216,11 +223,19 @@ func tdStart() {
   }(  )
 }
 
+type LatencyOut struct {
+  Value       int64       `json:"value"`
+  Max         int64       `json:"max"`
+  Min         int64       `json:"min"`
+}
+
 type AreasOut struct {
-  Timestamp   int64   `json:"timestamp"`
-  Areas     []string  `json:"areas"`
-  Total       int     `json:"total"`
-  Berths      int     `json:"berths"`
+  Areas     []string      `json:"areas"`
+  Timestamp   int64       `json:"lastUpdate"`
+  Reset       int64       `json:"reset"`
+  Total       int         `json:"total"`
+  Berths      int         `json:"berths"`
+  Latency    *Statistic   `json:"latency"`
 }
 
 // Return
@@ -242,16 +257,20 @@ func tdGetAreas( w http.ResponseWriter, r *http.Request ) {
   result.Total = len( result.Areas )
   result.Berths = berths
 
+  result.Latency = statsGet( "td.all" )
+
   settings.Server.setJsonResponse( w, 0, result.Timestamp, 60 )
   json.NewEncoder(w).Encode( result )
 }
 
 type AreaOut struct {
   Name        string                `json:"name"`
-  Timestamp   int64                 `json:"timestamp"`
   Berths      map[string]*TDBerth   `json:"berths"`
+  Timestamp   int64                 `json:"lastUpdate"`
+  HeartBeat   string                `json:"heartBeat"`
   Occupied    int                   `json:"occupied"`
   Total       int                   `json:"total"`
+  Latency    *Statistic   `json:"latency"`
 }
 
 func tdGetArea( w http.ResponseWriter, r *http.Request ) {
@@ -264,6 +283,7 @@ func tdGetArea( w http.ResponseWriter, r *http.Request ) {
   settings.Td.mutex.Lock()
   if area, ok := settings.Td.areas[ result.Name ]; ok {
     result.Timestamp = area.timestamp / int64(1000)
+    result.HeartBeat = area.heartBeat
 
     for name, berth := range area.berths {
       if berth.Descr != "" {
@@ -278,7 +298,12 @@ func tdGetArea( w http.ResponseWriter, r *http.Request ) {
   result.Occupied = len( result.Berths )
 
   var sc = 200
-  if result.Timestamp == 0 { sc = 404 }
+  if result.Timestamp == 0 {
+    sc = 404
+  } else {
+    result.Latency = statsGet( "td." + result.Name )
+  }
+
   settings.Server.setJsonResponse( w, sc, result.Timestamp, 10 )
   json.NewEncoder(w).Encode( result )
 }
