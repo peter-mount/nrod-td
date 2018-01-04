@@ -2,6 +2,9 @@
 package main
 
 import (
+  "encoding/json"
+  "log"
+  "strconv"
   "sync"
 )
 
@@ -16,6 +19,7 @@ func tdInit() {
 }
 
 type TDArea struct {
+  name      string
   // The timestamp of the last operation
   timestamp int64
   // Map of berths
@@ -32,10 +36,15 @@ func (t *TD) area( a string ) *TDArea {
     return val
   }
 
+  log.Println( "New Area", a )
+
   var v *TDArea = new( TDArea )
+  v.name = a
   v.berths = make( map[string]*TDBerth )
   t.areas[ a ] = v
-  return t.areas[ a ]
+
+  log.Println( "New Area", a, v )
+  return v
 }
 
 type TDBerth struct {
@@ -45,8 +54,11 @@ type TDBerth struct {
   Descr     string  `json:"descr"`
 }
 
-func (b *TDBerth) update( t int64, d string ) *TDBerth {
-  b.Timestamp = t
+func (b *TDBerth) update( t string, d string ) *TDBerth {
+  n, err := strconv.ParseInt( t, 10, 64 )
+  if err == nil {
+    b.Timestamp = n
+  }
   b.Descr = d
   return b
 }
@@ -64,14 +76,14 @@ type TDMessage struct {
   CA  *CAMessage  `json:"CA_MSG"`
   CB  *CBMessage  `json:"CB_MSG"`
   CC  *CCMessage  `json:"CC_MSG"`
-  //CT  *CTMessage  `json:"CT_MSG"`
+  CT  *CTMessage  `json:"CT_MSG"`
   //SF  *SMessage   `json:"SF_MSG"`
   //SG  *SMessage   `json:"SG_MSG"`
   //SH  *SMessage   `json:"SH_MSG"`
 }
 
 type SMessage struct {
-  Time  int64   `json:"time"`
+  Time  string  `json:"time"`
   Area  string  `json:"area_id"`
   Type  string  `json:"msg_type"`
   Addr  string  `json:"address"`
@@ -83,7 +95,7 @@ func (m *SMessage) handle() {
 }
 
 type CAMessage struct {
-  Time  int64   `json:"time"`
+  Time  string  `json:"time"`
   Area  string  `json:"area_id"`
   From  string  `json:"from"`
   To    string  `json:"to"`
@@ -98,7 +110,7 @@ func (m *CAMessage) handle() {
 }
 
 type CBMessage struct {
-  Time  int64   `json:"time"`
+  Time  string  `json:"time"`
   Area  string  `json:"area_id"`
   From  string  `json:"from"`
   Descr string  `json:"descr"`
@@ -110,7 +122,7 @@ func (m *CBMessage) handle() {
 }
 
 type CCMessage struct {
-  Time  int64   `json:"time"`
+  Time  string  `json:"time"`
   Area  string  `json:"area_id"`
   To    string  `json:"to"`
   Descr string  `json:"descr"`
@@ -122,15 +134,44 @@ func (m *CCMessage) handle() {
 }
 
 type CTMessage struct {
-  Time  int64   `json:"time"`
+  Time  string  `json:"time"`
   Area  string  `json:"area_id"`
   RepTM string  `json:"report_time"`
 }
 
 func (m *CTMessage) handle() {
+  statsIncr( "td.area.msg" )
+  log.Println( "Area", m.Area, "tm", m.RepTM )
   //settings.Td.area( m.Area ).berth( to ).update( m.Time, m.Descr )
 }
 
 func tdStart() {
+  _, err := settings.Amqp.channel.QueueDeclare( "td", true, false, false, false, nil )
+  fatalOnError( err )
 
+  fatalOnError( settings.Amqp.channel.QueueBind( "td", "feed.nrod.td", "amq.topic", false, nil ) )
+
+  queue, err := settings.Amqp.channel.Consume( "td", "td go", false, false, false, false, nil )
+  fatalOnError( err )
+
+  go func(  ) {
+    for {
+      msg, ok := <-queue
+      if !ok {
+        log.Fatal( "channel closed, see reconnect example" )
+      }
+
+      var dat []*TDMessage
+      fatalOnError( json.Unmarshal( msg.Body, &dat ) )
+
+      for _, tdmsg := range dat {
+        if tdmsg.CA != nil { tdmsg.CA.handle() }
+        if tdmsg.CB != nil { tdmsg.CB.handle() }
+        if tdmsg.CC != nil { tdmsg.CC.handle() }
+        if tdmsg.CT != nil { tdmsg.CT.handle() }
+      }
+
+      msg.Ack( false )
+    }
+  }(  )
 }
