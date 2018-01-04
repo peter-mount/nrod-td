@@ -71,9 +71,6 @@ func (s *Statistic) clone() *Statistic {
   r.Max = s.Max
   r.Ave = s.Ave
   r.Sum = s.Sum
-  r.lastFive = statsCopyArray( s.lastFive )
-  r.History = statsCopyArray( s.History )
-
   return r
 }
 
@@ -167,11 +164,10 @@ func getStats(w http.ResponseWriter, r *http.Request) {
   for key,value := range settings.Stats.stats {
     if value.latest != nil {
       stats[key] = value.latest.clone()
+      stats[key].History = statsCopyArray( value.History )
     }
   }
   settings.Stats.mutex.Unlock()
-
-  log.Println( len( stats ) )
 
   json.NewEncoder(w).Encode( stats )
 }

@@ -4,6 +4,8 @@ package main
 import (
   "encoding/json"
   "log"
+  "net/http"
+  "sort"
   "strconv"
   "sync"
   "time"
@@ -19,6 +21,8 @@ type TD struct {
 func tdInit() {
   settings.Td.areas = make( map[string]*TDArea )
   settings.Td.mutex = &sync.Mutex{}
+
+  settings.Server.router.HandleFunc( "/area", tdGetAreas ).Methods( "GET" )
 }
 
 func (a *TD) update( t string ) *TD {
@@ -28,8 +32,8 @@ func (a *TD) update( t string ) *TD {
     a.timestamp = n
 
     // Record the latency. count will be the number of messages processed for all
-    // Note n is Java time so in milliseconds hence *1000
-    statsSet( "td.all", (time.Now().Unix()*1000) - n )
+    // Note n is Java time so in milliseconds hence /1000
+    statsSet( "td.all", time.Now().Unix() - (n/int64(1000)) )
   }
 
   return a
@@ -50,8 +54,8 @@ func (a *TDArea) update( t string ) *TDArea {
     a.timestamp = n
 
     // Record the latency. count will be the number of messages processed for this area
-    // Note n is Java time so in milliseconds hence *1000
-    statsSet( "td." + a.name, (time.Now().Unix()*1000) - n )
+    // Note n is Java time so in milliseconds hence /1000
+    statsSet( "td." + a.name, time.Now().Unix() - (n/int64(1000)) )
   }
 
   return a
@@ -201,4 +205,39 @@ func tdStart() {
       msg.Ack( false )
     }
   }(  )
+}
+
+type AreasOut struct {
+  Timestamp   int64   `json:"timestamp"`
+  Areas     []string  `json:"areas"`
+  Total       int     `json:"total"`
+  Berths      int     `json:"berths"`
+}
+
+// Return
+func tdGetAreas( w http.ResponseWriter, r *http.Request ) {
+  var result = new( AreasOut )
+  result.Timestamp = time.Now().Unix()
+
+  var berths = 0
+
+  settings.Td.mutex.Lock()
+  for name, area := range settings.Td.areas {
+    result.Areas = append( result.Areas, name )
+    berths += len( area.berths )
+  }
+  settings.Td.mutex.Unlock()
+
+  sort.Strings( result.Areas )
+
+  result.Total = len( result.Areas )
+  result.Berths = berths
+
+  json.NewEncoder(w).Encode( result )
+}
+
+type AreaOut struct {
+  Name        string  `json:"name"`
+  Timestamp   int64   `json:"timestamp"`
+  berths    []string  `json:"berths"`
 }
