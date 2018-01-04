@@ -13,6 +13,7 @@ type Config struct {
   Amqp    AMQP        // RabbitMQ config
   Cron    CRON        // Cron config
   Server  Server      // Rest server
+  Td      TD          // TD
 }
 
 var settings Config
@@ -35,6 +36,7 @@ func loadConfig( configFile *string ) {
   serverInit()
   cronInit()
   statsInit()
+  tdInit()
 }
 
 // log.Println() only if debug is enabled

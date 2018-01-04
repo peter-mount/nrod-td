@@ -144,13 +144,13 @@ func statsInit() {
   settings.Stats.stats = make( map[string]*Statistic )
   settings.Stats.mutex = &sync.Mutex{}
 
-  if( settings.Stats.Schedule == "" ) {
+  if settings.Stats.Schedule == "" {
     settings.Stats.Schedule = "0 * * * * *"
   }
   cronAdd( settings.Stats.Schedule, statsRecord )
 
   // Add /stats endpoint
-  if( settings.Stats.Statistics ) {
+  if settings.Stats.Statistics {
     settings.Server.router.HandleFunc( "/stats", getStats ).Methods( "GET" )
   }
 

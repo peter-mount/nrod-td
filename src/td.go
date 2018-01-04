@@ -30,7 +30,7 @@ func main() {
   amqpConnect()
   cronStart()
 
-  statsSet( "test.stat", 0 )
+  tdStart()
 
   // serverStart never returns so no need for a time loop
   serverStart()
