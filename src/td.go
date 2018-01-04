@@ -28,13 +28,17 @@ func main() {
 //  }
 
   amqpConnect()
+  cronStart()
 
 //  if( settings.Http.enabled ) {
 //    stompRun()
 //  }
 
+statsSet( "test.stat", 0 )
+
   // Now keep running forever
   for {
+    statsIncr( "td.runtime" )
     time.Sleep(time.Minute)
   }
 }
