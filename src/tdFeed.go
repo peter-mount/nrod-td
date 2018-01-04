@@ -3,6 +3,7 @@ package main
 
 import (
   "encoding/json"
+  "github.com/gorilla/mux"
   "log"
   "net/http"
   "sort"
@@ -23,6 +24,7 @@ func tdInit() {
   settings.Td.mutex = &sync.Mutex{}
 
   settings.Server.router.HandleFunc( "/area", tdGetAreas ).Methods( "GET" )
+  settings.Server.router.HandleFunc( "/{id}", tdGetArea ).Methods( "GET" )
 }
 
 func (a *TD) update( t string ) *TD {
@@ -81,6 +83,13 @@ type TDBerth struct {
   Timestamp int64   `json:"timestamp"`
   // Descr on this berth
   Descr     string  `json:"descr"`
+}
+
+func (b *TDBerth) clone() *TDBerth {
+  var r = new( TDBerth )
+  r.Timestamp = b.Timestamp
+  r.Descr = b.Descr
+  return r
 }
 
 func (b *TDBerth) update( t string, d string ) *TDBerth {
@@ -217,7 +226,7 @@ type AreasOut struct {
 // Return
 func tdGetAreas( w http.ResponseWriter, r *http.Request ) {
   var result = new( AreasOut )
-  result.Timestamp = time.Now().Unix()
+  result.Timestamp = settings.Td.timestamp / int64(100)
 
   var berths = 0
 
@@ -233,11 +242,43 @@ func tdGetAreas( w http.ResponseWriter, r *http.Request ) {
   result.Total = len( result.Areas )
   result.Berths = berths
 
+  settings.Server.setJsonResponse( w, 0, result.Timestamp, 60 )
   json.NewEncoder(w).Encode( result )
 }
 
 type AreaOut struct {
-  Name        string  `json:"name"`
-  Timestamp   int64   `json:"timestamp"`
-  berths    []string  `json:"berths"`
+  Name        string                `json:"name"`
+  Timestamp   int64                 `json:"timestamp"`
+  Berths      map[string]*TDBerth   `json:"berths"`
+  Occupied    int                   `json:"occupied"`
+  Total       int                   `json:"total"`
+}
+
+func tdGetArea( w http.ResponseWriter, r *http.Request ) {
+  var params = mux.Vars( r )
+
+  var result = new( AreaOut )
+  result.Name = params[ "id" ]
+  result.Berths = make( map[string]*TDBerth )
+
+  settings.Td.mutex.Lock()
+  if area, ok := settings.Td.areas[ result.Name ]; ok {
+    result.Timestamp = area.timestamp / int64(1000)
+
+    for name, berth := range area.berths {
+      if berth.Descr != "" {
+        result.Berths[ name ] = berth.clone()
+      }
+    }
+
+    result.Total = len( area.berths )
+  }
+  settings.Td.mutex.Unlock()
+
+  result.Occupied = len( result.Berths )
+
+  var sc = 200
+  if result.Timestamp == 0 { sc = 404 }
+  settings.Server.setJsonResponse( w, sc, result.Timestamp, 10 )
+  json.NewEncoder(w).Encode( result )
 }
