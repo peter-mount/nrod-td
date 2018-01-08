@@ -4,7 +4,6 @@ import (
   "flag"
   "log"
   "os"
-  //"time"
 )
 
 func main() {
@@ -27,7 +26,7 @@ func main() {
 //    log.Fatal( "No message source configured, bailing out" )
 //  }
 
-  amqpConnect()
+  settings.Amqp.Connect()
   cronStart()
 
   tdStart()

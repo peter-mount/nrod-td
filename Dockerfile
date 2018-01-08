@@ -16,6 +16,9 @@ RUN mkdir -p /dest/etc &&\
 RUN go get -v \
       flag \
       github.com/gorilla/mux \
+      github.com/peter-mount/golib/rabbitmq \
+      github.com/peter-mount/golib/statistics \
+      \
       github.com/streadway/amqp \
       gopkg.in/robfig/cron.v2 \
       gopkg.in/yaml.v2 \

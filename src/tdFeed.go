@@ -4,6 +4,7 @@ package main
 import (
   "encoding/json"
   "github.com/gorilla/mux"
+  "github.com/peter-mount/golib/statistics"
   "log"
   "net/http"
   "sort"
@@ -66,7 +67,7 @@ func tdParseTimestamp( t string, a string ) int64 {
     n = n / int64(1000)
 
     if a != "" {
-      statsSet( "td." + a, time.Now().Unix() - n )
+      statistics.Set( "td." + a, time.Now().Unix() - n )
     }
 
     return n
@@ -220,7 +221,7 @@ func (m *CTMessage) handle() {
 }
 
 func tdStart() {
-  _, err := settings.Amqp.channel.QueueDeclare(
+  _, err := settings.Amqp.QueueDeclare(
     settings.Td.Queue,
     settings.Td.Durable,
     settings.Td.AutoDelete,
@@ -229,14 +230,14 @@ func tdStart() {
     false, nil )
   fatalOnError( err )
 
-  fatalOnError( settings.Amqp.channel.QueueBind(
+  fatalOnError( settings.Amqp.QueueBind(
     settings.Td.Queue,
     settings.Td.RoutingKey,
     settings.Td.Exchange,
     // wait & no args
     false, nil ) )
 
-  queue, err := settings.Amqp.channel.Consume(
+  queue, err := settings.Amqp.Consume(
     settings.Td.Queue,
     settings.Td.ConsumerTag,
     // Don't auto Ack as we do this after processing
@@ -287,7 +288,7 @@ type AreasOut struct {
   Reset       int64       `json:"reset"`
   Total       int         `json:"total"`
   Berths      int         `json:"berths"`
-  Latency    *Statistic   `json:"latency"`
+  Latency    *statistics.Statistic   `json:"latency"`
 }
 
 // Return
@@ -310,7 +311,7 @@ func tdGetAreas( w http.ResponseWriter, r *http.Request ) {
   result.Total = len( result.Areas )
   result.Berths = berths
 
-  result.Latency = statsGet( "td.all" )
+  result.Latency = statistics.Get( "td.all" )
 
   settings.Server.setJsonResponse( w, 0, result.Timestamp, 60 )
   json.NewEncoder(w).Encode( result )
@@ -324,7 +325,7 @@ type AreaOut struct {
   HeartBeat   string                `json:"heartBeat"`
   Occupied    int                   `json:"occupied"`
   Total       int                   `json:"total"`
-  Latency    *Statistic   `json:"latency"`
+  Latency    *statistics.Statistic  `json:"latency"`
 }
 
 func tdGetArea( w http.ResponseWriter, r *http.Request ) {
@@ -360,7 +361,7 @@ func tdGetArea( w http.ResponseWriter, r *http.Request ) {
   if result.Timestamp == 0 {
     sc = 404
   } else {
-    result.Latency = statsGet( "td." + result.Name )
+    result.Latency = statistics.Get( "td." + result.Name )
   }
 
   settings.Server.setJsonResponse( w, sc, result.Timestamp, 10 )
