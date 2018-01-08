@@ -2,6 +2,7 @@ package main
 
 import (
   "github.com/peter-mount/golib/rabbitmq"
+  "github.com/peter-mount/golib/statistics"
   "gopkg.in/yaml.v2"
   "io/ioutil"
   "log"
@@ -9,12 +10,12 @@ import (
 )
 
 type Config struct {
-  Debug   bool                // Debug logging
-//Stats   Statistics          // Statistics
-  Amqp    rabbitmq.RabbitMQ   // RabbitMQ config
-  Cron    CRON                // Cron config
-  Server  Server              // Rest server
-  Td      TD                  // TD
+  Debug   bool                    // Debug logging
+  Stats   statistics.Statistics   // Statistics
+  Amqp    rabbitmq.RabbitMQ       // RabbitMQ config
+  Cron    CRON                    // Cron config
+  Server  Server                  // Rest server
+  Td      TD                      // TD
 }
 
 var settings Config
@@ -35,6 +36,8 @@ func loadConfig( configFile *string ) {
   // Call each supported init method so they can play with the config
   serverInit()
   cronInit()
+  settings.Stats.Cron = settings.Cron.service
+  settings.Stats.Configure()
   //statsInit()
   tdInit()
 }
