@@ -27,7 +27,6 @@ func main() {
 //  }
 
   settings.Amqp.Connect()
-  cronStart()
 
   tdStart()
 

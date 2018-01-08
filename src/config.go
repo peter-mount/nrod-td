@@ -13,7 +13,6 @@ type Config struct {
   Debug   bool                    // Debug logging
   Stats   statistics.Statistics   // Statistics
   Amqp    rabbitmq.RabbitMQ       // RabbitMQ config
-  Cron    CRON                    // Cron config
   Server  Server                  // Rest server
   Td      TD                      // TD
 }
@@ -35,8 +34,6 @@ func loadConfig( configFile *string ) {
 
   // Call each supported init method so they can play with the config
   serverInit()
-  cronInit()
-  settings.Stats.Cron = settings.Cron.service
   settings.Stats.Configure()
   //statsInit()
   tdInit()
