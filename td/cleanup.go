@@ -39,3 +39,14 @@ func (s *TD) cleanup() {
     active,
     count )
 }
+
+// reset resets the database by wiping all areas
+func (s *TD) reset() {
+  s.Td.mutex.Lock()
+  defer s.Td.mutex.Unlock()
+
+  s.Td.reset = time.Now().Unix()
+  for area, _ := range s.Td.areas {
+    delete( s.Td.areas, area )
+  }
+}

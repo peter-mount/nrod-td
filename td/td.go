@@ -71,6 +71,9 @@ func (s *TD) Start() error {
   // Run berth cleanup function every 10 minutes
   s.cron.AddFunc( "0 0/10 * * * *", s.cleanup )
 
+  // Reset every day at 2am
+  s.cron.AddFunc( "0 0 2 * * *", s.reset )
+
   // Run berth stats every 10 seconds. we use 9/10 so we run before stat collection
   s.cron.AddFunc( "9/10 * * * * *", s.berthstat )
 
@@ -99,7 +102,8 @@ func (s *TD) Start() error {
   s.Td.areas = make( map[string]*TDArea )
   s.Td.mutex = &sync.Mutex{}
 
-  s.Td.reset = time.Now().Unix()
+  // Now perform a daily reset
+  s.reset()
 
   return s.tdStart()
 }
