@@ -4,6 +4,7 @@ import (
   "flag"
   "fmt"
   "github.com/peter-mount/golib/kernel"
+  "github.com/peter-mount/golib/kernel/cron"
   "github.com/peter-mount/golib/rabbitmq"
   "github.com/peter-mount/golib/rest"
   "sync"
@@ -19,6 +20,7 @@ type TD struct {
   Td            TDFeed                  // TDFeed
 
   restService  *rest.Server
+  cron         *cron.CronService
   Graphite      Graphite
 }
 
@@ -29,7 +31,13 @@ func (s *TD) Name() string {
 func (s *TD) Init( k *kernel.Kernel ) error {
   s.yamlFile = flag.String( "c", "/config.yaml", "The config file to use" )
 
-  service, err := k.AddService( &rest.Server{} )
+  service, err := k.AddService( &cron.CronService{} )
+  if err != nil {
+    return err
+  }
+  s.cron = (service).(*cron.CronService)
+
+  service, err = k.AddService( &rest.Server{} )
   if err != nil {
     return err
   }
@@ -59,6 +67,9 @@ func (s *TD) PostInit() error {
 }
 
 func (s *TD) Start() error {
+
+  // Run berth cleanup function every 10 minutes
+  s.cron.AddFunc( "0 0/10 * * * *", s.cleanup )
 
   err := s.Amqp.Connect()
   if err != nil {
