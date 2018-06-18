@@ -51,7 +51,7 @@ func (g *Graphite) PublishStatistic( name string, s *statistics.Statistic ) {
   g.publish( name + ".min", s.Min, s.Timestamp )
   g.publish( name + ".max", s.Max, s.Timestamp )
   g.publish( name + ".ave", s.Ave, s.Timestamp )
-  g.publish( name + ".sub", s.Sum, s.Timestamp )
+  g.publish( name + ".sum", s.Sum, s.Timestamp )
 }
 
 func (g *Graphite) publish( name string, val int64, ts int64 ) {
