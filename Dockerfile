@@ -1,11 +1,12 @@
 # Dockerfile used to build the application
 
 # Build container containing our pre-pulled libraries
-FROM golang:latest as build
+FROM golang:alpine AS build
 
-# Static compile
-ENV CGO_ENABLED=0
-ENV GOOS=linux
+# The golang alpine image is missing git so ensure we have additional tools
+RUN apk add --no-cache \
+      curl \
+      git
 
 # We want to build our final image under /dest
 # A copy of /etc/ssl is required if we want to use https datasources
@@ -14,30 +15,35 @@ RUN mkdir -p /dest/etc &&\
 
 # Ensure we have the libraries - docker will cache these between builds
 RUN go get -v \
-      flag \
       github.com/gorilla/mux \
+      github.com/peter-mount/golib/kernel \
       github.com/peter-mount/golib/rabbitmq \
+      github.com/peter-mount/golib/rest \
       github.com/peter-mount/golib/statistics \
-        \
       github.com/streadway/amqp \
       gopkg.in/robfig/cron.v2 \
-      gopkg.in/yaml.v2 \
-      io/ioutil \
-      log \
-      net/http \
-      path/filepath \
-      time
+      gopkg.in/yaml.v2
 
-# Import the source and compile
-WORKDIR /src
-ADD src /src/
-RUN go build \
-      -v \
-      -x \
-      -o /dest/bin/td \
-      .
+# ============================================================
+# source container contains the source as it exists within the
+# repository.
+FROM build AS source
+WORKDIR /go/src/github.com/peter-mount/nrod-td
+ADD . .
+
+# ============================================================
+FROM source AS compiler
+
+RUN CGO_ENABLED=0 \
+    GOOS=${goos} \
+    GOARCH=${goarch} \
+    GOARM=${goarm} \
+    go build \
+      -o /dest/td \
+      github.com/peter-mount/nrod-td/td/bin
 
 # Finally build the final runtime container will all required files
 FROM scratch
-COPY --from=build /dest/ /
-CMD ["td"]
+COPY --from=compiler /dest/ /
+ENTRYPOINT [ "/td" ]
+CMD [ "-c", "/config.yaml" ]
