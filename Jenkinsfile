@@ -88,30 +88,8 @@ def buildArch = {
     } // repository != ''
 }
 
-def manifests = {
-  () -> manifests = architectures.collect { architecture -> dockerImage( architecture ) }
-  manifests.join(' ')
-}
-
-// Deploy multi-arch image for a service
-def multiArchService = {
-  () ->
-    // Create/amend the manifest with our architectures
-    sh 'docker manifest create -a ' + multiImage + ' ' + manifests(  )
-
-    // For each architecture annotate them to be correct
-    architectures.each {
-      architecture -> sh 'docker manifest annotate' +
-        ' --os linux' +
-        ' --arch ' + goarch( architecture ) +
-        ' ' + multiImage +
-        ' ' + dockerImage( architecture )
-    }
-
-    // Publish the manifest
-    sh 'docker manifest push -p ' + multiImage
-}
-
+manifestsCol = architectures.collect { architecture -> dockerImage( architecture ) }
+manifests = manifestsCol.join(' ')
 
 // Now build everything on one node
 node('AMD64') {
@@ -156,20 +134,20 @@ node('AMD64') {
   // Stages valid only if we have a repository set
   if( repository != '' ) {
     stage( "Multiarch Image" ) {
-      parallel(
-        'darwinref': {
-          multiArchService( 'darwinref' )
-        },
-        'darwintt': {
-          multiArchService( 'darwintt' )
-        },
-        'darwind3': {
-          multiArchService( 'darwind3' )
-        },
-        'ldb': {
-          multiArchService( 'ldb' )
-        }
-      )
+      // Create/amend the manifest with our architectures
+      sh 'docker manifest create -a ' + multiImage + ' ' + manifests(  )
+
+      // For each architecture annotate them to be correct
+      architectures.each {
+        architecture -> sh 'docker manifest annotate' +
+          ' --os linux' +
+          ' --arch ' + goarch( architecture ) +
+          ' ' + multiImage +
+          ' ' + dockerImage( architecture )
+      }
+
+      // Publish the manifest
+      sh 'docker manifest push -p ' + multiImage
     }
   }
 
