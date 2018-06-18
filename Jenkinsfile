@@ -106,10 +106,10 @@ node('AMD64') {
   stage( "Build" ) {
     parallel (
       'amd64': {
-        buildArch( "amd64", service )
+        buildArch( "amd64" )
       },
       'arm64v8': {
-        buildArch( "arm64v8", service )
+        buildArch( "arm64v8" )
       }
     )
   }

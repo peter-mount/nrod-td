@@ -1,5 +1,8 @@
 # Dockerfile used to build the application
 
+ARG arch=amd64
+ARG goos=linux
+
 # Build container containing our pre-pulled libraries
 FROM golang:alpine AS build
 
@@ -33,6 +36,9 @@ ADD . .
 
 # ============================================================
 FROM source AS compiler
+ARG goos
+ARG goarch
+ARG goarm
 
 RUN CGO_ENABLED=0 \
     GOOS=${goos} \
