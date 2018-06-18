@@ -84,7 +84,10 @@ func (a *TDFeed) update( t string ) *TDFeed {
 }
 
 func (a *TDArea) update( t string ) *TDArea {
-  a.timestamp = tdParseTimestamp( t, a.name )
+  // For now don't record statistics for each individual area
+  // to save space in graphite & the number of messages sent
+  //a.timestamp = tdParseTimestamp( t, a.name )
+  a.timestamp = tdParseTimestamp( t, "" )
   return a
 }
 
