@@ -26,7 +26,7 @@ tempImage = 'temp/' + imagePrefix + ':' + version
 def dockerImage = {
   architecture -> repository + imagePrefix +
     ':' +
-    ( architecture=='' ? '' : ('-' + architecture) ) +
+    ( architecture=='' ? '' : architecture ) +
     '-' + version
 }
 
