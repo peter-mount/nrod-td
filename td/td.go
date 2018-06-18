@@ -48,6 +48,13 @@ func (s *TD) PostInit() error {
 
   s.Graphite.rabbitMQ = &s.Amqp
 
+  s.restService.Handle( "/areas", s.tdGetAreas ).Methods( "GET" )
+  s.restService.Handle( "/area/{id}", s.tdGetArea ).Methods( "GET" )
+
+  // Old endpoints for compatibility
+  s.restService.Handle( "/area", s.tdGetAreas ).Methods( "GET" )
+  s.restService.Handle( "/{id}", s.tdGetArea ).Methods( "GET" )
+
   return nil
 }
 
@@ -79,9 +86,6 @@ func (s *TD) Start() error {
   s.Td.mutex = &sync.Mutex{}
 
   s.Td.reset = time.Now().Unix()
-
-  //s.Server.router.HandleFunc( "/area", tdGetAreas ).Methods( "GET" )
-  //s.Server.router.HandleFunc( "/{id}", tdGetArea ).Methods( "GET" )
 
   return s.tdStart()
 }
