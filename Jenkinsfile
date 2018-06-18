@@ -118,7 +118,7 @@ node('AMD64') {
   if( repository != '' ) {
     stage( "Multiarch Image" ) {
       // Create/amend the manifest with our architectures
-      sh 'docker manifest create -a ' + multiImage + ' ' + manifests(  )
+      sh 'docker manifest create -a ' + multiImage + ' ' + manifests
 
       // For each architecture annotate them to be correct
       architectures.each {
