@@ -8,10 +8,12 @@ import (
 )
 
 type Graphite struct {
-  RabbitMQ     *rabbitmq.RabbitMQ
+  rabbitMQ     *rabbitmq.RabbitMQ
   statistics    statistics.Statistics
+  Enabled       bool
   Prefix        string
   Exchange      string
+  Schedule      string
   channel      *amqp.Channel
 }
 
@@ -23,22 +25,27 @@ func (g *Graphite) Start() error {
   // Custom statistics engine, capture every 10s so we submit to Graphite at
   // intervals it's expecting
   g.statistics.Log = false
-  g.statistics.Schedule = "0/10 * * * * *"
+
+  if g.Schedule != "" {
+    g.statistics.Schedule = g.Schedule
+  } else {
+    g.statistics.Schedule = "0/10 * * * * *"
+  }
   g.statistics.Configure()
 
-  if g.RabbitMQ != nil {
+  if g.Enabled && g.rabbitMQ != nil {
 
     // Default exchange is "graphite"
     if g.Exchange == "" {
       g.Exchange = "graphite"
     }
 
-    err := g.RabbitMQ.Connect()
+    err := g.rabbitMQ.Connect()
     if err != nil {
       return err
     }
 
-    g.channel, err = g.RabbitMQ.NewChannel()
+    g.channel, err = g.rabbitMQ.NewChannel()
     if err != nil {
       return err
     }
@@ -56,8 +63,9 @@ func (g *Graphite) PublishStatistic( name string, s *statistics.Statistic ) {
   g.publish( name + ".latency", s.Value, s.Timestamp )
   // Count the number of messages
   g.publish( name + ".count", s.Count, s.Timestamp )
-  //g.publish( name + ".min", s.Min, s.Timestamp )
-  //g.publish( name + ".max", s.Max, s.Timestamp )
+  // Min/Max latency values
+  g.publish( name + ".min", s.Min, s.Timestamp )
+  g.publish( name + ".max", s.Max, s.Timestamp )
   //g.publish( name + ".ave", s.Ave, s.Timestamp )
   //g.publish( name + ".sum", s.Sum, s.Timestamp )
 }

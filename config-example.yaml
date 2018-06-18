@@ -1,0 +1,37 @@
+
+# Required: Details on logging in to RabbitMQ
+amqp:
+  # Required: RabbitMQ connection string: amqp://user:pass@hostname
+  url: amqp://user:password@host
+  # Optional: The exchange to use, defaults to amq.topic
+  #exchange: amq.topic
+  # Optional: Descriptive name to show in RabbitMQ management plugin against the connection
+  connectionName: NR TD Rest API
+
+td:
+  # The queue name Required
+  queue: td
+  # The routingKey to bind to Required
+  routingKey: nr.td.all
+  # The exchange, defaults to amq.topic
+  #exchange: amq.topic
+  # Make the queue durable
+  durable: true
+  # Delete the queue on shutdown
+  #autoDelete: true
+  # Make the queue exclusive
+  #exclusive: true
+  # Consumer Tag, defaults to "", shows in RabbitMQ management plugin
+  consumerTag: TD Rest API
+
+# Defines logging to Graphite
+graphite:
+  # If true then submit statistics to Graphite
+  enabled: true
+  # optional prefix to the collected statistics
+  prefix: nr
+  # The exchange graphite is using, defaults to "graphite"
+  exchange: graphite
+  # The collection schedule, this should match the smallest collection interval
+  # defined in Graphite, default is "0/10 * * * * *" which is once every 10 seconds
+  #schedule: "0/10 * * * * *"

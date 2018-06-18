@@ -19,7 +19,7 @@ type TD struct {
   Td            TDFeed                  // TDFeed
 
   restService  *rest.Server
-  graphite     *Graphite
+  Graphite      Graphite
 }
 
 func (s *TD) Name() string {
@@ -35,14 +35,6 @@ func (s *TD) Init( k *kernel.Kernel ) error {
   }
   s.restService = (service).(*rest.Server)
 
-/*
-  service, err := k.AddService( &Graphite{} )
-  if err != nil {
-    return err
-  }
-  s.graphite = (service).(*Graphite)
-  */
-
   return nil
 }
 
@@ -54,7 +46,8 @@ func (s *TD) PostInit() error {
     return err
   }
 
-  //s.tdInit()
+  s.Graphite.rabbitMQ = &s.Amqp
+
   return nil
 }
 
@@ -65,11 +58,7 @@ func (s *TD) Start() error {
     return err
   }
 
-  s.graphite = &Graphite{
-    RabbitMQ: &s.Amqp,
-    Prefix: "nr",
-  }
-  err = s.graphite.Start()
+  err = s.Graphite.Start()
   if err != nil {
     return err
   }
