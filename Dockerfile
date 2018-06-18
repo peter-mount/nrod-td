@@ -10,8 +10,8 @@ RUN apk add --no-cache \
 
 # We want to build our final image under /dest
 # A copy of /etc/ssl is required if we want to use https datasources
-RUN mkdir -p /dest/etc &&\
-    cp -rp /etc/ssl /dest/etc/
+#RUN mkdir -p /dest/etc &&\
+#    cp -rp /etc/ssl /dest/etc/
 
 # Ensure we have the libraries - docker will cache these between builds
 RUN go get -v \
