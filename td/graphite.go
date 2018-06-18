@@ -5,6 +5,7 @@ import (
   "github.com/peter-mount/golib/rabbitmq"
   "github.com/peter-mount/golib/statistics"
   "github.com/streadway/amqp"
+  "strings"
 )
 
 type Graphite struct {
@@ -59,15 +60,17 @@ func (g *Graphite) Start() error {
 
 // PublishStatistic Handles publishing statistics to Graphite over RabbitMQ
 func (g *Graphite) PublishStatistic( name string, s *statistics.Statistic ) {
-  // Value will be the latency
-  g.publish( name + ".latency", s.Value, s.Timestamp )
-  // Count the number of messages
-  g.publish( name + ".count", s.Count, s.Timestamp )
-  // Min/Max latency values
-  g.publish( name + ".min", s.Min, s.Timestamp )
-  g.publish( name + ".max", s.Max, s.Timestamp )
-  //g.publish( name + ".ave", s.Ave, s.Timestamp )
-  //g.publish( name + ".sum", s.Sum, s.Timestamp )
+  if strings.HasSuffix( name, "td.all" ) {
+    // Value will be the latency
+    g.publish( name + ".latency", s.Value, s.Timestamp )
+    // Count the number of messages
+    g.publish( name + ".count", s.Count, s.Timestamp )
+    // Min/Max latency values
+    g.publish( name + ".min", s.Min, s.Timestamp )
+    g.publish( name + ".max", s.Max, s.Timestamp )
+  } else {
+    g.publish( name, s.Value, s.Timestamp )
+  }
 }
 
 func (g *Graphite) publish( name string, val int64, ts int64 ) {

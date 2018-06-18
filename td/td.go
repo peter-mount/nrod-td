@@ -71,6 +71,9 @@ func (s *TD) Start() error {
   // Run berth cleanup function every 10 minutes
   s.cron.AddFunc( "0 0/10 * * * *", s.cleanup )
 
+  // Run berth stats every 10 seconds. we use 9/10 so we run before stat collection
+  s.cron.AddFunc( "9/10 * * * * *", s.berthstat )
+
   err := s.Amqp.Connect()
   if err != nil {
     return err
