@@ -10,5 +10,10 @@ type CCMessage struct {
 func (m *CCMessage) handle( s *TD ) {
   s.Td.mutex.Lock()
   defer s.Td.mutex.Unlock()
-  s.Td.update( m.Time ).area( m.Area ).update( m.Time ).berth( m.To ).update( m.Time, m.Descr )
+  s.Td.
+    update( m.Time ).
+    area( m.Area ).
+    update( m.Time ).
+    berth( m.To ).
+    update( m.Time, m.Descr )
 }

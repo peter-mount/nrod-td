@@ -10,5 +10,10 @@ type CBMessage struct {
 func (m *CBMessage) handle( s *TD ) {
   s.Td.mutex.Lock()
   defer s.Td.mutex.Unlock()
-  s.Td.update( m.Time ).area( m.Area ).update( m.Time ).berth( m.From ).update( m.Time, "" )
+  s.Td.
+    update( m.Time ).
+    area( m.Area ).
+    update( m.Time ).
+    berth( m.From ).
+    update( m.Time, "" )
 }

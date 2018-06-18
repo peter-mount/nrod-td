@@ -67,7 +67,7 @@ func tdParseTimestamp( t string, a string ) int64 {
   n, err := strconv.ParseInt( t, 10, 64 )
   if err == nil {
     // NR feed is in Java time (millis) so convert to Unix time (seconds)
-    n = n / int64(1000)
+    n := n / int64(1000)
 
     if a != "" {
       statistics.Set( "td." + a, time.Now().Unix() - n )

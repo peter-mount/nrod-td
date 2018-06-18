@@ -9,5 +9,8 @@ type CTMessage struct {
 func (m *CTMessage) handle( s *TD ) {
   s.Td.mutex.Lock()
   defer s.Td.mutex.Unlock()
-  s.Td.update( m.Time ).area( m.Area ).heartBeat = m.RepTM
+  s.Td.
+    update( m.Time ).
+    area( m.Area ).
+    heartBeat = m.RepTM
 }

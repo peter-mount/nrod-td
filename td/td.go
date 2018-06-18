@@ -6,7 +6,6 @@ import (
   "github.com/peter-mount/golib/kernel"
   "github.com/peter-mount/golib/rabbitmq"
   "github.com/peter-mount/golib/rest"
-  "github.com/peter-mount/golib/statistics"
   "sync"
   "time"
 )
@@ -15,7 +14,7 @@ type TD struct {
   yamlFile     *string
 
   Debug         bool                    // Debug logging
-  Stats         statistics.Statistics   // Statistics
+  //Stats         statistics.Statistics   // Statistics
   Amqp          rabbitmq.RabbitMQ       // RabbitMQ config
   Td            TDFeed                  // TDFeed
 
@@ -68,15 +67,12 @@ func (s *TD) Start() error {
 
   s.graphite = &Graphite{
     RabbitMQ: &s.Amqp,
-    Statistics: &s.Stats,
     Prefix: "nr",
   }
   err = s.graphite.Start()
   if err != nil {
     return err
   }
-
-  s.Stats.Configure()
 
   if s.Td.Queue == "" {
     return fmt.Errorf( "Queue name is required" )
