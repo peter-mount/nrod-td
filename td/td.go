@@ -8,7 +8,6 @@ import (
   "github.com/peter-mount/golib/rabbitmq"
   "github.com/peter-mount/golib/rest"
   "sync"
-  "time"
 )
 
 type TD struct {
