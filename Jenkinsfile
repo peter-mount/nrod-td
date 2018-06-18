@@ -103,32 +103,15 @@ node('AMD64') {
     sh 'docker build -t ' + tempImage + ' --target source .'
   }
 
-  // Run unit tests
-  stage("Run Tests") {
+  service -> stage( "Build" ) {
     parallel (
-      'darwind3': { runTest( 'darwind3' ) },
-      'darwinref': { runTest( 'darwinref' ) },
-      'ldb': { runTest( 'ldb' ) },
-      'util': { runTest( 'util' ) },
+      'amd64': {
+        buildArch( "amd64", service )
+      },
+      'arm64v8': {
+        buildArch( "arm64v8", service )
+      }
     )
-  }
-
-  // Run issue tests separately as these will grow over time
-  stage( "Test Issues" ) {
-    runTest( 'issues' )
-  }
-
-  services.each {
-    service -> stage( service ) {
-      parallel (
-        'amd64': {
-          buildArch( "amd64", service )
-        },
-        'arm64v8': {
-          buildArch( "arm64v8", service )
-        }
-      )
-    }
   }
 
   // Stages valid only if we have a repository set
