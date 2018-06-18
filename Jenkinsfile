@@ -103,7 +103,7 @@ node('AMD64') {
     sh 'docker build -t ' + tempImage + ' --target source .'
   }
 
-  service -> stage( "Build" ) {
+  stage( "Build" ) {
     parallel (
       'amd64': {
         buildArch( "amd64", service )
