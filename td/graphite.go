@@ -65,9 +65,12 @@ func (g *Graphite) PublishStatistic( name string, s *statistics.Statistic ) {
     g.publish( name + ".latency", s.Value, s.Timestamp )
     // Count the number of messages
     g.publish( name + ".count", s.Count, s.Timestamp )
-    // Min/Max latency values
-    g.publish( name + ".min", s.Min, s.Timestamp )
-    g.publish( name + ".max", s.Max, s.Timestamp )
+
+    // Min/Max latency values - don't send if max<min - i.e. no data!
+    if s.Max >= s.Min {
+      g.publish( name + ".min", s.Min, s.Timestamp )
+      g.publish( name + ".max", s.Max, s.Timestamp )
+    }
   } else {
     g.publish( name, s.Value, s.Timestamp )
   }
