@@ -70,7 +70,12 @@ func tdParseTimestamp( t string, a string ) int64 {
     n := n / int64(1000)
 
     if a != "" {
-      statistics.Set( "td." + a, time.Now().Unix() - n )
+      dt := time.Now().Unix() - n
+      // Hide anomaly around local midnight where a blip is recorded going from
+      // +- 2400 (14400 when merged into 1m samples)
+      if dt > -2400 && dt < 2400 {
+        statistics.Set( "td." + a, dt )
+      }
     }
 
     return n
